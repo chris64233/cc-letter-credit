@@ -9,5 +9,11 @@ public enum PresentationStatus {
     PRESENTED,
 
     /** 已承兑（可能已撤销）。 */
-    ACCEPTED
+    ACCEPTED,
+
+    /**
+     * 已撤回：修订生效且受益人选择「撤回后按新版本补交」时，
+     * 基线版本下尚未承兑的交单进入此状态，不能再补交或承兑，需重新交单。
+     */
+    WITHDRAWN
 }

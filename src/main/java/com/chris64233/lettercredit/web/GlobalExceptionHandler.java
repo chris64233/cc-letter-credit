@@ -22,19 +22,32 @@ public class GlobalExceptionHandler {
             ErrorCode.CREDIT_NOT_FOUND,
             ErrorCode.PRESENTATION_NOT_FOUND,
             ErrorCode.VERSION_NOT_FOUND,
-            ErrorCode.ACCEPTANCE_NOT_FOUND);
+            ErrorCode.ACCEPTANCE_NOT_FOUND,
+            ErrorCode.AMENDMENT_NOT_FOUND,
+            ErrorCode.AMENDMENT_DECISION_NOT_FOUND);
 
     private static final Set<ErrorCode> BAD_REQUEST = Set.of(
             ErrorCode.INVALID_REQUEST_PARAM,
-            ErrorCode.INVALID_ACCEPTANCE_AMOUNT);
+            ErrorCode.INVALID_ACCEPTANCE_AMOUNT,
+            ErrorCode.AMENDMENT_NO_TERMS_CHANGED,
+            ErrorCode.AMENDMENT_AMOUNT_BELOW_ACCEPTED,
+            ErrorCode.PENDING_PRESENTATIONS_NOT_COVERED,
+            ErrorCode.PENDING_PRESENTATION_POLICY_REQUIRED,
+            ErrorCode.AMENDMENT_SCOPE_MISMATCH);
 
     private static final Set<ErrorCode> CONFLICT = Set.of(
             ErrorCode.DUPLICATE_PRESENTATION_NO,
             ErrorCode.PRESENTATION_ALREADY_ACCEPTED,
+            ErrorCode.PRESENTATION_WITHDRAWN,
             ErrorCode.ACCEPTANCE_ALREADY_REVERSED,
             ErrorCode.REVIEW_VERSION_STALE,
             ErrorCode.CREDIT_VERSION_STALE,
-            ErrorCode.DISCREPANCY_DECISION_CONFLICT);
+            ErrorCode.DISCREPANCY_DECISION_CONFLICT,
+            ErrorCode.DUPLICATE_AMENDMENT_NO,
+            ErrorCode.ACTIVE_AMENDMENT_EXISTS,
+            ErrorCode.AMENDMENT_NOT_ACTIVE,
+            ErrorCode.AMENDMENT_BASE_VERSION_STALE,
+            ErrorCode.AMENDMENT_DECISION_CONFLICT);
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusiness(BusinessException ex) {

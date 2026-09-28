@@ -67,6 +67,10 @@ public class Acceptance {
     @Column(name = "credit_version_at_acceptance", nullable = false)
     private long creditVersionAtAcceptance;
 
+    /** 承兑所依据的信用证业务版本号（交单绑定版本），承兑后不再变化。 */
+    @Column(name = "credit_version_no", nullable = false)
+    private int creditVersionNo;
+
     @Column(name = "reversed_at")
     private OffsetDateTime reversedAt;
 
@@ -99,6 +103,7 @@ public class Acceptance {
         this.acceptedBy = acceptedBy;
         this.acceptedAt = OffsetDateTime.now();
         this.creditVersionAtAcceptance = creditVersionAtAcceptance;
+        this.creditVersionNo = presentation.getCreditVersion().getVersionNo();
     }
 
     /**
@@ -160,6 +165,10 @@ public class Acceptance {
 
     public long getCreditVersionAtAcceptance() {
         return creditVersionAtAcceptance;
+    }
+
+    public int getCreditVersionNo() {
+        return creditVersionNo;
     }
 
     public OffsetDateTime getReversedAt() {

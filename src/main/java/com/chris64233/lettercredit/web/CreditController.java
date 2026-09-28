@@ -6,8 +6,12 @@ import com.chris64233.lettercredit.exception.BusinessException;
 import com.chris64233.lettercredit.exception.ErrorCode;
 import com.chris64233.lettercredit.service.AcceptanceService;
 import com.chris64233.lettercredit.service.AcceptanceView;
+import com.chris64233.lettercredit.service.BalanceChangeView;
 import com.chris64233.lettercredit.service.CreditBalanceView;
 import com.chris64233.lettercredit.service.CreditService;
+import com.chris64233.lettercredit.service.CreditVersionDiffView;
+import com.chris64233.lettercredit.service.CreditVersionService;
+import com.chris64233.lettercredit.service.CreditVersionView;
 import com.chris64233.lettercredit.service.PresentationService;
 import com.chris64233.lettercredit.service.PresentationView;
 import com.chris64233.lettercredit.web.dto.CreateCreditRequest;
@@ -33,13 +37,16 @@ public class CreditController {
     private final CreditService creditService;
     private final PresentationService presentationService;
     private final AcceptanceService acceptanceService;
+    private final CreditVersionService versionService;
 
     public CreditController(CreditService creditService,
                             PresentationService presentationService,
-                            AcceptanceService acceptanceService) {
+                            AcceptanceService acceptanceService,
+                            CreditVersionService versionService) {
         this.creditService = creditService;
         this.presentationService = presentationService;
         this.acceptanceService = acceptanceService;
+        this.versionService = versionService;
     }
 
     @PostMapping
@@ -77,6 +84,33 @@ public class CreditController {
             }
         }
         return acceptanceService.ledger(creditNo, statusFilter);
+    }
+
+    /** 信用证全部版本（开证版本 1 + 每次修订生效追加，旧版本不可修改）。 */
+    @GetMapping("/{creditNo}/versions")
+    public List<CreditVersionView> versions(@PathVariable String creditNo) {
+        return versionService.listVersions(creditNo);
+    }
+
+    /** 指定版本查询。 */
+    @GetMapping("/{creditNo}/versions/{versionNo}")
+    public CreditVersionView version(@PathVariable String creditNo,
+                                     @PathVariable int versionNo) {
+        return versionService.getVersion(creditNo, versionNo);
+    }
+
+    /** 版本条款差异：不传 from/to 时比较相邻的最新两版本。 */
+    @GetMapping("/{creditNo}/versions/diff")
+    public CreditVersionDiffView diff(@PathVariable String creditNo,
+                                      @RequestParam(required = false) Integer from,
+                                      @RequestParam(required = false) Integer to) {
+        return versionService.diff(creditNo, from, to);
+    }
+
+    /** 信用证余额变动流水（承兑占用 / 撤销恢复 / 修订生效）。 */
+    @GetMapping("/{creditNo}/balance-changes")
+    public List<BalanceChangeView> balanceChanges(@PathVariable String creditNo) {
+        return versionService.balanceChanges(creditNo);
     }
 
     static DocumentSummary toDocument(DocumentRequest d) {

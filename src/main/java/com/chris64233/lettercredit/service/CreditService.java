@@ -1,5 +1,6 @@
 package com.chris64233.lettercredit.service;
 
+import com.chris64233.lettercredit.domain.CreditVersion;
 import com.chris64233.lettercredit.domain.LetterCredit;
 import com.chris64233.lettercredit.exception.BusinessException;
 import com.chris64233.lettercredit.exception.ErrorCode;
@@ -27,8 +28,8 @@ public class CreditService {
                                BigDecimal maxAmount,
                                LocalDate expiryDate,
                                List<String> allowedDocumentTypes) {
-        LetterCredit credit = new LetterCredit(creditNo, beneficiary, currency.toUpperCase(),
-                maxAmount, expiryDate, allowedDocumentTypes);
+        LetterCredit credit = new LetterCredit(creditNo, beneficiary, currency.toUpperCase());
+        credit.attachInitialVersion(maxAmount, expiryDate, allowedDocumentTypes);
         return creditRepository.save(credit);
     }
 
@@ -40,14 +41,16 @@ public class CreditService {
     }
 
     /**
-     * 信用证余额查询：最高金额、已承兑占用、可用余额与乐观锁版本。
+     * 信用证余额查询：当前版本最高金额、已承兑占用、可用余额、当前版本号与乐观锁版本。
      */
     @Transactional(readOnly = true)
     public CreditBalanceView balance(String creditNo) {
         LetterCredit credit = getByNo(creditNo);
+        CreditVersion current = credit.getCurrentVersion();
         return new CreditBalanceView(credit.getCreditNo(), credit.getBeneficiary(),
-                credit.getCurrency(), credit.getMaxAmount(), credit.getAcceptedAmount(),
-                credit.availableAmount(), credit.getExpiryDate(),
-                List.copyOf(credit.getAllowedDocumentTypes()), credit.getVersion());
+                credit.getCurrency(), current.getMaxAmount(), credit.getAcceptedAmount(),
+                credit.availableAmount(), current.getExpiryDate(),
+                List.copyOf(current.getAllowedDocumentTypes()), current.getVersionNo(),
+                credit.getVersion());
     }
 }

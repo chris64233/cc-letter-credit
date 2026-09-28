@@ -78,7 +78,9 @@ class ReviewEngineTest {
 
     private static LetterCredit credit(String no, BigDecimal maxAmount, LocalDate expiry,
                                        List<String> allowedTypes) {
-        return new LetterCredit(no, "受益人", "USD", maxAmount, expiry, allowedTypes);
+        LetterCredit credit = new LetterCredit(no, "受益人", "USD");
+        credit.attachInitialVersion(maxAmount, expiry, allowedTypes);
+        return credit;
     }
 
     private static DocumentSummary doc(String type) {

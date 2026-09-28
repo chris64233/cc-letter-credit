@@ -48,6 +48,10 @@ public class DiscrepancyDecisionService {
             throw new BusinessException(ErrorCode.PRESENTATION_ALREADY_ACCEPTED,
                     "交单 " + presentationNo + " 已承兑，差异决定不可变更");
         }
+        if (presentation.isWithdrawn()) {
+            throw new BusinessException(ErrorCode.PRESENTATION_WITHDRAWN,
+                    "交单 " + presentationNo + " 已随信用证修订生效撤回，差异决定不可登记");
+        }
 
         ReviewVersion latest = presentation.latestVersion();
         if (latest.isClean()) {

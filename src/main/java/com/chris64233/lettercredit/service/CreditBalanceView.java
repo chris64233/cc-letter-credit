@@ -15,5 +15,6 @@ public record CreditBalanceView(String creditNo,
                                 BigDecimal availableAmount,
                                 LocalDate expiryDate,
                                 List<String> allowedDocumentTypes,
+                                int currentVersionNo,
                                 long version) {
 }
