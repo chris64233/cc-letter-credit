@@ -7,6 +7,8 @@ import java.time.OffsetDateTime;
 
 /**
  * 承兑台账视图。撤销信息完整保留（处理人、原因、时间）。
+ *
+ * @param creditVersionNo 承兑额度所归属的信用证版本号
  */
 public record AcceptanceView(Long id,
                              String acceptanceNo,
@@ -18,6 +20,7 @@ public record AcceptanceView(Long id,
                              String acceptedBy,
                              OffsetDateTime acceptedAt,
                              AcceptanceStatus status,
+                             int creditVersionNo,
                              long creditVersionAtAcceptance,
                              String reversedBy,
                              String reversalReason,

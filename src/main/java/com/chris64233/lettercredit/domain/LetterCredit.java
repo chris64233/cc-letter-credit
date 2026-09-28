@@ -60,6 +60,13 @@ public class LetterCredit {
     @Column(name = "doc_type", nullable = false, length = 64)
     private List<String> allowedDocumentTypes = new ArrayList<>();
 
+    /**
+     * 当前生效的信用证版本号（对应 {@link CreditVersion#getVersionNo()}）。
+     * 修订生效时递增；与 {@link #version}（JPA 乐观锁）是两个不同概念。
+     */
+    @Column(name = "current_version_no", nullable = false)
+    private int currentVersionNo = 1;
+
     /** JPA 乐观锁版本：余额一变，基于旧版本的承兑立即失败。 */
     @Version
     private long version;
@@ -82,7 +89,8 @@ public class LetterCredit {
     }
 
     /**
-     * 占用可用金额（部分承兑）。余额不足时抛业务异常，不产生任何变更。
+     * 占用可用金额（部分承兑）。统一金额信封：当前最高金额 − 全版本承兑累计
+     * 必须足够，否则抛业务异常，不产生任何变更。
      */
     public void reserve(BigDecimal amount) {
         if (availableAmount().compareTo(amount) < 0) {
@@ -98,6 +106,22 @@ public class LetterCredit {
      */
     public void release(BigDecimal amount) {
         acceptedAmount = acceptedAmount.subtract(amount);
+    }
+
+    /**
+     * 修订生效：以修订内容更新信用证当前条款并切换到新版本。
+     *
+     * <p>{@code acceptedAmount}（实际承兑占用）保持不变——既有承兑不可修改；
+     * 降低最高金额的合法性（不得低于已承兑累计）由服务在加锁后重新校验。</p>
+     */
+    public void applyAmendment(BigDecimal newMaxAmount,
+                               LocalDate newExpiryDate,
+                               List<String> newAllowedDocumentTypes,
+                               int newVersionNo) {
+        this.maxAmount = newMaxAmount;
+        this.expiryDate = newExpiryDate;
+        this.allowedDocumentTypes = new ArrayList<>(newAllowedDocumentTypes);
+        this.currentVersionNo = newVersionNo;
     }
 
     public BigDecimal availableAmount() {
@@ -142,6 +166,10 @@ public class LetterCredit {
 
     public List<String> getAllowedDocumentTypes() {
         return Collections.unmodifiableList(allowedDocumentTypes);
+    }
+
+    public int getCurrentVersionNo() {
+        return currentVersionNo;
     }
 
     public long getVersion() {

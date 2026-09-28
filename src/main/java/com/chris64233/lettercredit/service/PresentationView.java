@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 交单视图，含全部审核版本（旧版本保留）。
+ * 交单视图，含所依据的信用证版本号与全部审核版本（旧版本保留）。
  */
 public record PresentationView(Long id,
                                String presentationNo,
@@ -16,6 +16,7 @@ public record PresentationView(Long id,
                                String currency,
                                LocalDate presentationDate,
                                PresentationStatus status,
+                               int creditVersionNo,
                                int latestVersionNo,
                                List<ReviewVersionView> versions) {
 }

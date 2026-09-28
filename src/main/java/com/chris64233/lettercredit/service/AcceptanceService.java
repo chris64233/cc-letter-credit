@@ -2,6 +2,7 @@ package com.chris64233.lettercredit.service;
 
 import com.chris64233.lettercredit.domain.Acceptance;
 import com.chris64233.lettercredit.domain.AcceptanceStatus;
+import com.chris64233.lettercredit.domain.BalanceMovement;
 import com.chris64233.lettercredit.domain.DiscrepancyDecision;
 import com.chris64233.lettercredit.domain.LetterCredit;
 import com.chris64233.lettercredit.domain.Presentation;
@@ -9,6 +10,7 @@ import com.chris64233.lettercredit.domain.ReviewVersion;
 import com.chris64233.lettercredit.exception.BusinessException;
 import com.chris64233.lettercredit.exception.ErrorCode;
 import com.chris64233.lettercredit.repository.AcceptanceRepository;
+import com.chris64233.lettercredit.repository.BalanceMovementRepository;
 import com.chris64233.lettercredit.repository.DiscrepancyDecisionRepository;
 import com.chris64233.lettercredit.repository.LetterCreditRepository;
 import com.chris64233.lettercredit.repository.PresentationRepository;
@@ -23,9 +25,11 @@ import java.util.Optional;
 /**
  * 承兑与撤销服务。
  *
- * <p>承兑在<strong>同一数据库事务</strong>内完成：版本校验 → 差异决定校验 →
- * 扣减信用证可用金额 → 写承兑台账 → 冻结交单。通过交单行与信用证行的
- * 悲观写锁串行化并发承兑，配合信用证乐观锁版本兜底，保证累计承兑不超额；
+ * <p>承兑在<strong>同一数据库事务</strong>内完成：版本/差异校验 →
+ * 按交单绑定的信用证版本重新校验额度 → 追加承兑台账 → 冻结交单。
+ * 事务对交单行与信用证行加悲观写锁（固定加锁顺序防死锁），
+ * 与修订生效事务串行化：修订生效若撤回交单或降低额度，在锁内重新校验后
+ * 二者必有一方失败，杜绝基于旧余额快照的累计承兑超额。
  * 外部交单号作为幂等键，重复承兑不重复扣款。</p>
  */
 @Service
@@ -35,15 +39,18 @@ public class AcceptanceService {
     private final PresentationRepository presentationRepository;
     private final LetterCreditRepository creditRepository;
     private final DiscrepancyDecisionRepository decisionRepository;
+    private final BalanceMovementRepository movementRepository;
 
     public AcceptanceService(AcceptanceRepository acceptanceRepository,
                              PresentationRepository presentationRepository,
                              LetterCreditRepository creditRepository,
-                             DiscrepancyDecisionRepository decisionRepository) {
+                             DiscrepancyDecisionRepository decisionRepository,
+                             BalanceMovementRepository movementRepository) {
         this.acceptanceRepository = acceptanceRepository;
         this.presentationRepository = presentationRepository;
         this.creditRepository = creditRepository;
         this.decisionRepository = decisionRepository;
+        this.movementRepository = movementRepository;
     }
 
     /**
@@ -69,6 +76,12 @@ public class AcceptanceService {
         Optional<Acceptance> existing = acceptanceRepository.findByPresentationId(presentation.getId());
         if (existing.isPresent()) {
             return toView(existing.get());
+        }
+
+        if (presentation.isWithdrawn()) {
+            throw new BusinessException(ErrorCode.PRESENTATION_WITHDRAWN,
+                    "交单 " + presentationNo + " 已随信用证修订撤回，不能承兑，"
+                            + "请按新版本重新交单");
         }
 
         ReviewVersion latest = presentation.latestVersion();
@@ -103,15 +116,24 @@ public class AcceptanceService {
                     "承兑金额必须为正且不超过交单金额 " + presentation.getAmount());
         }
 
+        // 额度为信用证级<strong>统一信封</strong>：无论交单绑定哪个信用证版本，
+        // 承兑都占用“当前最高金额 − 全版本未撤销承兑累计”的可用余额，
+        // 在锁内基于实时余额校验，不使用任何快照。修订降额后保留在旧版本上的
+        // 交单同样受新最高金额约束。
         long creditVersionBefore = credit.getVersion();
         try {
-            // 同事务扣减余额：余额不足直接抛异常，整笔回滚。
             credit.reserve(amount);
 
             Acceptance acceptance = new Acceptance("ACC-" + presentationNo, credit,
                     presentation, latest, amount, acceptedBy, creditVersionBefore);
             acceptance = acceptanceRepository.save(acceptance);
             presentation.markAccepted();
+
+            movementRepository.save(new BalanceMovement(credit,
+                    BalanceMovement.Type.ACCEPTANCE, amount,
+                    credit.getAcceptedAmount(), credit.getMaxAmount(),
+                    presentation.getCreditVersionNo(),
+                    acceptance.getAcceptanceNo(), acceptedBy));
 
             // 提前 flush，使乐观锁冲突在本事务内显式暴露。
             acceptanceRepository.flush();
@@ -124,7 +146,7 @@ public class AcceptanceService {
 
     /**
      * 独立撤销决定：承兑记录本身不改写，只追加撤销状态、原因与处理人，
-     * 并在同一事务恢复信用证余额。
+     * 并在同一事务恢复额度（全局累计与分版本统计均由台账重算）。
      */
     @Transactional
     public AcceptanceView reverse(String acceptanceNo, String reversedBy, String reason) {
@@ -142,6 +164,10 @@ public class AcceptanceService {
         try {
             credit.release(acceptance.getAmount());
             acceptance.reverse(reversedBy, reason);
+            movementRepository.save(new BalanceMovement(credit,
+                    BalanceMovement.Type.REVERSAL, acceptance.getAmount().negate(),
+                    credit.getAcceptedAmount(), credit.getMaxAmount(),
+                    acceptance.getCreditVersionNo(), acceptance.getAcceptanceNo(), reversedBy));
             // 提前 flush：并发撤销时乐观锁冲突在本事务内显式暴露并回滚余额恢复。
             acceptanceRepository.flush();
         } catch (ObjectOptimisticLockingFailureException e) {
@@ -198,7 +224,7 @@ public class AcceptanceService {
                 a.getCredit().getCreditNo(), a.getPresentation().getPresentationNo(),
                 a.getReviewVersion().getVersionNo(), a.getAmount(), a.getCurrency(),
                 a.getAcceptedBy(), a.getAcceptedAt(), a.getStatus(),
-                a.getCreditVersionAtAcceptance(), a.getReversedBy(),
-                a.getReversalReason(), a.getReversedAt());
+                a.getCreditVersionNo(), a.getCreditVersionAtAcceptance(),
+                a.getReversedBy(), a.getReversalReason(), a.getReversedAt());
     }
 }

@@ -47,6 +47,10 @@ public class Acceptance {
     @JoinColumn(name = "review_version_id", nullable = false)
     private ReviewVersion reviewVersion;
 
+    /** 承兑时交单所绑定的信用证版本号（承兑额度归属该版本）。 */
+    @Column(name = "credit_version_no", nullable = false)
+    private int creditVersionNo;
+
     @Column(name = "amount", nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;
 
@@ -99,6 +103,7 @@ public class Acceptance {
         this.acceptedBy = acceptedBy;
         this.acceptedAt = OffsetDateTime.now();
         this.creditVersionAtAcceptance = creditVersionAtAcceptance;
+        this.creditVersionNo = presentation.getCreditVersionNo();
     }
 
     /**
@@ -136,6 +141,10 @@ public class Acceptance {
 
     public ReviewVersion getReviewVersion() {
         return reviewVersion;
+    }
+
+    public int getCreditVersionNo() {
+        return creditVersionNo;
     }
 
     public BigDecimal getAmount() {

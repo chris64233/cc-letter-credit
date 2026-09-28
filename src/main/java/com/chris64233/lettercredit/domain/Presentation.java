@@ -50,6 +50,14 @@ public class Presentation {
     @Column(name = "presentation_date", nullable = false)
     private java.time.LocalDate presentationDate;
 
+    /**
+     * 交单时所依据的信用证版本号。交单始终绑定到交单时点的当前版本：
+     * 后续修订不改变该归属，按旧版本保留的交单继续占用旧版本额度，
+     * 其审核规则（有效期、单据清单）也以该版本为准。
+     */
+    @Column(name = "credit_version_no", nullable = false)
+    private int creditVersionNo;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
     private PresentationStatus status = PresentationStatus.PRESENTED;
@@ -65,12 +73,14 @@ public class Presentation {
                         LetterCredit credit,
                         BigDecimal amount,
                         String currency,
-                        java.time.LocalDate presentationDate) {
+                        java.time.LocalDate presentationDate,
+                        int creditVersionNo) {
         this.presentationNo = presentationNo;
         this.credit = credit;
         this.amount = amount;
         this.currency = currency;
         this.presentationDate = presentationDate;
+        this.creditVersionNo = creditVersionNo;
     }
 
     /**
@@ -91,8 +101,17 @@ public class Presentation {
         this.status = PresentationStatus.ACCEPTED;
     }
 
+    /** 修订生效且申请人选择“撤回后按新版本补交”时，未承兑交单转入撤回终态。 */
+    public void markWithdrawn() {
+        this.status = PresentationStatus.WITHDRAWN;
+    }
+
     public boolean isAccepted() {
         return status == PresentationStatus.ACCEPTED;
+    }
+
+    public boolean isWithdrawn() {
+        return status == PresentationStatus.WITHDRAWN;
     }
 
     public Long getId() {
@@ -117,6 +136,10 @@ public class Presentation {
 
     public java.time.LocalDate getPresentationDate() {
         return presentationDate;
+    }
+
+    public int getCreditVersionNo() {
+        return creditVersionNo;
     }
 
     public PresentationStatus getStatus() {

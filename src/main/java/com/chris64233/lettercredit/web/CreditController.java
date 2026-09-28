@@ -6,8 +6,10 @@ import com.chris64233.lettercredit.exception.BusinessException;
 import com.chris64233.lettercredit.exception.ErrorCode;
 import com.chris64233.lettercredit.service.AcceptanceService;
 import com.chris64233.lettercredit.service.AcceptanceView;
+import com.chris64233.lettercredit.service.BalanceMovementView;
 import com.chris64233.lettercredit.service.CreditBalanceView;
 import com.chris64233.lettercredit.service.CreditService;
+import com.chris64233.lettercredit.service.CreditVersionView;
 import com.chris64233.lettercredit.service.PresentationService;
 import com.chris64233.lettercredit.service.PresentationView;
 import com.chris64233.lettercredit.web.dto.CreateCreditRequest;
@@ -55,6 +57,18 @@ public class CreditController {
     @GetMapping("/{creditNo}/balance")
     public CreditBalanceView balance(@PathVariable String creditNo) {
         return creditService.balance(creditNo);
+    }
+
+    /** 信用证全部版本查询（版本差异对比、各版本额度占用）。 */
+    @GetMapping("/{creditNo}/versions")
+    public List<CreditVersionView> versions(@PathVariable String creditNo) {
+        return creditService.versions(creditNo);
+    }
+
+    /** 信用证余额变化流水（承兑/撤销/修订生效结转）。 */
+    @GetMapping("/{creditNo}/balance-movements")
+    public List<BalanceMovementView> movements(@PathVariable String creditNo) {
+        return creditService.movements(creditNo);
     }
 
     /** 信用证下交单列表（含全部审核版本）。 */
